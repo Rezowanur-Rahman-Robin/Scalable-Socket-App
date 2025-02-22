@@ -74,11 +74,30 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleRoomCreate(client: Socket, room: string) {
     await this.redis.sadd('rooms', room);
     client.join(room);
+    // Broadcast room update to all clients
+    this.broadcastRoomUpdate();
   }
 
   @SubscribeMessage('room:join')
-  handleRoomJoin(client: Socket, room: string) {
+  async handleRoomJoin(client: Socket, room: string) {
     client.join(room);
+    // Broadcast room update to all clients
+    this.broadcastRoomUpdate();
+  }
+
+  @SubscribeMessage('rooms:list')
+  async handleRoomsList() {
+    await this.broadcastRoomUpdate();
+  }
+
+  // Add this new method to broadcast room updates
+  private async broadcastRoomUpdate() {
+    const rooms = await this.redis.smembers('rooms');
+    const roomsList = rooms.map((room) => ({
+      name: room,
+      users: this.server.sockets.adapter.rooms.get(room)?.size || 0,
+    }));
+    this.server.emit('rooms:update', roomsList);
   }
 
   @SubscribeMessage('message:room')

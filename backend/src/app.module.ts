@@ -6,7 +6,7 @@ import { RedisModule } from '@nestjs-modules/ioredis';
   imports: [
     RedisModule.forRoot({
       type: 'single',
-      url: 'redis://redis:6379',
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
     }),
   ],
   providers: [ChatGateway],
