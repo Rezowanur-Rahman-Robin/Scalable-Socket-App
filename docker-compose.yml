@@ -7,24 +7,34 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
+    networks:
+      - app-network
 
   backend1:
     build:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      - REDIS_URL=redis://redis:6379
+      - REDIS_NODES=redis-1:6379,redis-2:6380,redis-3:6381
     depends_on:
-      - redis
+      - redis-1
+      - redis-2
+      - redis-3
+    networks:
+      - app-network
 
   backend2:
     build:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      - REDIS_URL=redis://redis:6379
+      - REDIS_NODES=redis-1:6379,redis-2:6380,redis-3:6381
     depends_on:
-      - redis
+      - redis-1
+      - redis-2
+      - redis-3
+    networks:
+      - app-network
 
   nginx:
     image: nginx:alpine
@@ -35,8 +45,60 @@ services:
     depends_on:
       - backend1
       - backend2
+    networks:
+      - app-network
 
-  redis:
+  redis-1:
     image: redis:alpine
+    command: redis-server /usr/local/etc/redis/redis.conf
     ports:
       - "6379:6379"
+      - "16379:16379"
+    volumes:
+      - ./redis/cluster/redis-node-1.conf:/usr/local/etc/redis/redis.conf
+      - redis1-data:/data
+    networks:
+      - app-network
+
+  redis-2:
+    image: redis:alpine
+    command: redis-server /usr/local/etc/redis/redis.conf
+    ports:
+      - "6380:6380"
+      - "16380:16380"
+    volumes:
+      - ./redis/cluster/redis-node-2.conf:/usr/local/etc/redis/redis.conf
+      - redis2-data:/data
+    networks:
+      - app-network
+
+  redis-3:
+    image: redis:alpine
+    command: redis-server /usr/local/etc/redis/redis.conf
+    ports:
+      - "6381:6381"
+      - "16381:16381"
+    volumes:
+      - ./redis/cluster/redis-node-3.conf:/usr/local/etc/redis/redis.conf
+      - redis3-data:/data
+    networks:
+      - app-network
+
+  redis-cluster-init:
+    image: redis:alpine
+    command: redis-cli --cluster create redis-1:6379 redis-2:6380 redis-3:6381 --cluster-yes
+    depends_on:
+      - redis-1
+      - redis-2
+      - redis-3
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  redis1-data:
+  redis2-data:
+  redis3-data:
